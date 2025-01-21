@@ -9,11 +9,20 @@ import (
 )
 
 func SendStartMessage(chatID int64, userName string, bot *tgbotapi.BotAPI) error {
-	msg := tgbotapi.NewMessage(chatID, "Привет! Этот бот поможет решить проблему со стиралками, теперь тебе не нужно постоянно переписываться в чатике по поводу стиралок.\nДостаточно нажать одну кнопку в этом боте, чтобы занять стиралку или сушилку :)")
+	msg := tgbotapi.NewMessage(chatID, "Привет! Этот бот поможет решить проблему со стиралками, теперь тебе не нужно постоянно переписываться в чатике по поводу стиралок.\nДостаточно нажать одну кнопку в этом боте, чтобы занять стиралку или сушилку :)\n\nДля начала давай верифицируемся")
+	inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
+		[]tgbotapi.InlineKeyboardButton{
+			tgbotapi.NewInlineKeyboardButtonData("Верифицироваться", "verify"),
+		},
+	)
+
+	msg.ReplyMarkup = inlineKeyboard
+
 	_, err := bot.Send(msg)
 	if err != nil {
 		return fmt.Errorf("%w:%w\n", err, errs.ErrSendMessage)
 	}
+
 	log.Printf("The start message sended to %s (chatID: %d)", userName, chatID)
 	return nil
 }

@@ -19,3 +19,17 @@ func HandleStartButton(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI) er
 	}
 	return nil
 }
+
+func HandleVerificationButton(updates tgbotapi.UpdatesChannel, bot *tgbotapi.BotAPI) error {
+	for update := range updates {
+		if update.Message != nil && update.Message.IsCommand() && update.Message.Command() == "start" {
+			chatID := update.Message.Chat.ID
+			userName := update.Message.From.FirstName
+			err := send.SendStartMessage(chatID, userName, bot)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
