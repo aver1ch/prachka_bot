@@ -1,3 +1,12 @@
+/*
+
+функционал таков: сразу будет вопрос стираться или сушиться
+в ответ на кнопку будет информация о бронях и кнопка забронировать на такое-то время
+какая очередь, количество людей, на сколько циклов заняли, какой режим стирки, как раз от этого и зависит время
+Можно отменить бронь
+Напоминалка по истечению таймера
+*/
+
 package main
 
 import (
@@ -7,42 +16,40 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-/*
-нужна верификация
-Номер комнаты, id в тг, проверка на подписку в беседу в общаге
-закидываем это всё дело в базу данных, если всё хорошо
-после этого будет доступен функционал:
-функционал таков: Сразу будет сообщение, которое будет изменяться динамически или по кнопке
-там будет показано, какая машинка, кем занята или не занята, поломана ли машинка
-какая очередь, количество людей, на сколько циклов заняли, какой режим стирки, как раз от этого и зависит время
-Можно будет занять наперёд, если не мешает другой стирке
-Можно отменить бронь
-Напоминалка по истечению таймера
-*/
-
 func main() {
-	bot, err := tgbotapi.NewBotAPI("7633580945:AAGSE71kwZY7zNLn6HpO-eNDCj_ViX1pCBk")
 
+	bot, err := tgbotapi.NewBotAPI("7633580945:AAGSE71kwZY7zNLn6HpO-eNDCj_ViX1pCBk")
 	if err != nil {
-		log.Panic("Bot is not started: %w\n", err)
+		log.Panicf("Ошибка при запуске бота: %v", err)
 	}
 
-	bot.Debug = true
-
-	log.Printf("Bot started\nAutorised as %s", bot.Self.UserName)
+	log.Printf("Бот запущен\nАвторизован как %s", bot.Self.UserName)
 
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 30
-
 	updates := bot.GetUpdatesChan(u)
 
-	err = handlers.HandleStartButton(updates, bot)
-	if err != nil {
-		log.Panic(err)
-	}
+	for update := range updates {
+		if update.Message != nil {
 
-	err = handlers.HandleVerificationButton(updates, bot)
-	if err != nil {
-		log.Panic(err)
+			err := handlers.HandleStartButton(update, bot)
+			if err != nil {
+				log.Printf("Ошибка в обработке команды 'start': %v", err)
+			}
+
+			/* err = handlers.HandleVerifyButton(update.CallbackQuery, bot)
+			if err != nil {
+				log.Printf("Ошибка в обработке номера комнаты: %v", err)
+			} */
+		}
+
+		if update.CallbackQuery != nil {
+
+			err := handlers.HandleCallbackQuery(update.CallbackQuery, bot)
+			if err != nil {
+				log.Printf("Ошибка в обработке CallbackQuery: %v", err)
+			}
+
+		}
 	}
 }
