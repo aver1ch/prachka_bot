@@ -11,4 +11,6 @@ var (
 	ErrAlreadyAutorized    = errors.New("пользователь пытался верифицироваться, хотя уже верифицирован")
 	ErrAuthorizationError  = errors.New("неавторизованный пользователь пытается выполнить действие")
 	ErrCallbackQuery       = errors.New("ошибка обработки кнопки")
+	ErrReadStatusFile      = errors.New("не получается прочитать данные из json")
+	ErrWriteStatusFile     = errors.New("не получается записать данные в json")
 )

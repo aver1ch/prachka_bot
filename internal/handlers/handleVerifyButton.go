@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"laundryBot/internal/db"
 	"laundryBot/internal/errs"
@@ -20,13 +19,11 @@ func HandleVerifyButton(callbackQuery *tgbotapi.CallbackQuery, bot *tgbotapi.Bot
 	if err != nil {
 		return err
 	}
-	defer dbConn.Disconnect(context.Background())
+	defer dbConn.Close()
 
-	usersCollection := dbConn.Database("dorm1").Collection("users")
-
-	isAuthorized, err := db.GetIsAuthorisedFromDB(usersCollection, userName)
+	isAuthorized, err := db.GetIsAuthorisedFromDB(dbConn, userName)
 	if err != nil {
-		return fmt.Errorf("%w:%w (%v, %v)", err, errs.ErrPullingDataFromDB, chatID, userName)
+		return fmt.Errorf("%w: %w", err, errs.ErrAuthorizationError)
 	}
 
 	if isAuthorized {
@@ -78,9 +75,9 @@ func HandleRoomNumberMessage(update tgbotapi.Update, bot *tgbotapi.BotAPI) error
 	if err != nil {
 		return err
 	}
-	defer dbConn.Disconnect(context.Background())
+	defer dbConn.Close()
 
-	err = db.InsertUserToDB(dbConn, username, roomNumber)
+	err = db.InsertUserToDB(dbConn, username, roomNumber, true)
 	if err != nil {
 		return err
 	}

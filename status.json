@@ -1,20 +1,82 @@
-
 {
 
-"laundry1" : {
-
+"Сушка" : {
+    "status": false,
+    "timeUntilRelease":
+        {
+            "hours": 0, 
+            "minutes": 0, 
+            "seconds": 0
+        },
+    "queue": [
+        {
+            "username" : "shlyapa",
+            "time": {
+                "hours": 0,
+                "minutes": 30,
+                "seconds": 0
+            },
+            "chatID": 34214,
+            "room": 3513
+        }
+    ]
 },
 
-"laundry2": {
+"Стиралка 1": {
+    "status": true,
+    "timeUntilRelease":
+        {
+            "hours": 0, 
+            "minutes": 0, 
+            "seconds": 0
+        },
+        "queue": [
 
+        ]
 },
 
-"laundry3": {
-
+"Стиралка 2": {
+    "status": false,
+    "timeUntilRelease": 
+        {
+            "hours": 0, 
+            "minutes": 0, 
+            "seconds": 0
+        },
+        "queue": [
+            {
+                "username" : "shlyapa",
+                "time": {
+                    "hours": 0,
+                    "minutes": 30,
+                    "seconds": 0
+                },
+                "chatID": 34214,
+                "room": 3513
+            }
+        ]
 },
 
-"dryer": {
-
+"Стиралка 3": {
+    "status": false,
+    "timeUntilRelease": 
+        {
+            "hours": 0, 
+            "minutes": 0, 
+            "seconds": 0
+        },
+        "queue": [
+            {
+                "username" : "name",
+                "time": {
+                    "hours": 0,
+                    "minutes": 0,
+                    "seconds": 0
+                },
+                "chatID": 1342,
+                "room": 543
+            }
+        ]
 }
 
 }

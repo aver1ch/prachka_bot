@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"laundryBot/internal/db"
 	"laundryBot/internal/errs"
@@ -19,17 +18,15 @@ func HandleDryButton(callbackQuery *tgbotapi.CallbackQuery, bot *tgbotapi.BotAPI
 	if err != nil {
 		return err
 	}
-	defer dbConn.Disconnect(context.Background())
+	defer dbConn.Close()
 
-	usersCollection := dbConn.Database("dorm1").Collection("users")
-
-	isAuthorized, err := db.GetIsAuthorisedFromDB(usersCollection, userName)
+	isAuthorized, err := db.GetIsAuthorisedFromDB(dbConn, userName)
 	if err != nil {
-		return fmt.Errorf("%w:%w (%v, %v)", err, errs.ErrPullingDataFromDB, chatID, userName)
+		return fmt.Errorf("%w: %w", err, errs.ErrAuthorizationError)
 	}
 
 	if isAuthorized {
-		err := send.SendInfoByService(chatID, userName, bot, "dry")
+		err := send.SendInfoByService(chatID, userName, bot, "Сушка")
 		log.Printf("Пользователь %s (chatID: %d) нажал на кнопку 'Cушилка'", userName, chatID)
 		if err != nil {
 			return fmt.Errorf("%w:%w", err, errs.ErrAlreadyAutorized)

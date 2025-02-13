@@ -3,6 +3,7 @@ package send
 import (
 	"fmt"
 	"laundryBot/internal/errs"
+	"laundryBot/internal/processing"
 	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -95,18 +96,22 @@ func SendChooseMenu(chatID int64, userName string, bot *tgbotapi.BotAPI) error {
 	msg := tgbotapi.NewMessage(chatID, "Ты будешь стираться или сушиться?")
 	inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Сушка", "dry"),
+			tgbotapi.NewInlineKeyboardButtonData("Сушка", "Сушка"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Стиралка 1", "laundry1"),
+			tgbotapi.NewInlineKeyboardButtonData("Стиралка 1", "Стиралка 1"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Стиралка 2", "laundry2"),
+			tgbotapi.NewInlineKeyboardButtonData("Стиралка 2", "Стиралка 2"),
 		),
 		tgbotapi.NewInlineKeyboardRow(
-			tgbotapi.NewInlineKeyboardButtonData("Стиралка 3", "laundry3"),
+			tgbotapi.NewInlineKeyboardButtonData("Стиралка 3", "Стиралка 3"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Мои бронирования", "myOrders"),
 		),
 	)
+
 	msg.ReplyMarkup = inlineKeyboard
 
 	_, err := bot.Send(msg)
@@ -118,24 +123,148 @@ func SendChooseMenu(chatID int64, userName string, bot *tgbotapi.BotAPI) error {
 	return nil
 }
 
-// забронировать на быструю стирку или другой режим
 func SendInfoByService(chatID int64, userName string, bot *tgbotapi.BotAPI, service string) error {
-	var msg tgbotapi.MessageConfig
-	if service == "dry" {
-		info := fmt.Sprintf("информация по сушке %s", service)
-		msg = tgbotapi.NewMessage(chatID, info)
-		log.Printf("Сообщение о сушке отправлено %s (chatID: %d)", userName, chatID)
-	} else {
-		info := fmt.Sprintf("информация по стиралке %s", service)
-		msg = tgbotapi.NewMessage(chatID, info)
-		log.Printf("Сообщение о стиралке отправлено %s (chatID: %d)", userName, chatID)
+	status, err := processing.ReadInfoFromJSON(service)
+	if err != nil {
+		return fmt.Errorf("ошибка чтения данных о сервисе для %s: %w", service, err)
 	}
+
+	log.Print(status, service)
+
+	var info string
+	var inlineKeyboard tgbotapi.InlineKeyboardMarkup
+
+	// Проверка статуса сервиса
+	if status.Status == false {
+		info = fmt.Sprintf("%s\n\nСтатус: %s\n\nБудет доступно в %02d:%02d:%02d",
+			service, "Занято", status.TimeUntilRelease.Hours, status.TimeUntilRelease.Minutes, status.TimeUntilRelease.Seconds)
+	} else {
+		info = fmt.Sprintf("%s\n\n%s", service, "Свободно")
+	}
+
+	msg := tgbotapi.NewMessage(chatID, info)
+	log.Printf("Сообщение по сервису %s отправлено %s (chatID: %d)", service, userName, chatID)
+
+	if service == "Сушка" {
+		inlineKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+			[]tgbotapi.InlineKeyboardButton{
+				tgbotapi.NewInlineKeyboardButtonData("Забронировать", "orderDry"),
+				tgbotapi.NewInlineKeyboardButtonData("Назад", "back"),
+			},
+		)
+	} else {
+		str := fmt.Sprintf("orderLaundry+%s", service) // костыль
+		inlineKeyboard = tgbotapi.NewInlineKeyboardMarkup(
+			[]tgbotapi.InlineKeyboardButton{
+				tgbotapi.NewInlineKeyboardButtonData("Забронировать", str),
+				tgbotapi.NewInlineKeyboardButtonData("Назад", "back"),
+			},
+		)
+	}
+
+	msg.ReplyMarkup = inlineKeyboard
+
+	_, err = bot.Send(msg)
+	if err != nil {
+		return fmt.Errorf("ошибка при отправке сообщения: %w", err)
+	}
+
+	return nil
+}
+
+func SendRequestOfLaundryMode(chatID int64, userName string, bot *tgbotapi.BotAPI, mode string) error {
+	msg := tgbotapi.NewMessage(chatID, "Какой режим будете использовать?\n")
+
+	str1 := fmt.Sprintf("%s+%s", mode, "quick") // костыль
+	str2 := fmt.Sprintf("%s+%s", mode, "long")  // костыль
 
 	inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
 		[]tgbotapi.InlineKeyboardButton{
-			tgbotapi.NewInlineKeyboardButtonData("Забронировать", "order"),
+			tgbotapi.NewInlineKeyboardButtonData("Быстрая стирка", str1),
+			tgbotapi.NewInlineKeyboardButtonData("Другой режим", str2),
+		},
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Назад", "back"),
+		),
+	)
+
+	msg.ReplyMarkup = inlineKeyboard
+
+	_, err := bot.Send(msg)
+	if err != nil {
+		return fmt.Errorf("%w:%w\n", err, errs.ErrSendMessage)
+	}
+
+	return nil
+}
+
+func SendRequestOfOrderConfirmation(chatID int64, userName string, bot *tgbotapi.BotAPI, service string) error {
+	status, err := processing.ReadInfoFromJSON(service)
+	if err != nil {
+		return fmt.Errorf("%w:%w\n", err, errs.ErrReadStatusFile)
+	}
+
+	info := fmt.Sprintf("Вы уверены, что хотите совершить бронь на %02d:%02d:%02d?",
+		status.TimeUntilRelease.Hours, status.TimeUntilRelease.Minutes, status.TimeUntilRelease.Seconds)
+
+	msg := tgbotapi.NewMessage(chatID, info)
+	inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
+		[]tgbotapi.InlineKeyboardButton{
+			tgbotapi.NewInlineKeyboardButtonData("Подтвердить", "сonfirm"),
 			tgbotapi.NewInlineKeyboardButtonData("Назад", "back"),
 		},
+	)
+
+	msg.ReplyMarkup = inlineKeyboard
+
+	_, err = bot.Send(msg)
+	if err != nil {
+		return fmt.Errorf("%w:%w\n", err, errs.ErrSendMessage)
+	}
+
+	return nil
+}
+
+func SendConfirmMessage(chatID int64, userName string, bot *tgbotapi.BotAPI) error {
+	info := fmt.Sprintf("Бронь подтверждена, если машинка не занята, то ты можешь начинать стирку, в противном случае жди от меня сообщения, когда твоя машинка освободится\nУ тебя будет 5 минут, чтобы начать стирку")
+
+	msg := tgbotapi.NewMessage(chatID, info)
+	inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Хорошо", "back"),
+		),
+	)
+
+	msg.ReplyMarkup = inlineKeyboard
+
+	_, err := bot.Send(msg)
+	if err != nil {
+		return fmt.Errorf("%w:%w\n", err, errs.ErrSendMessage)
+	}
+
+	return nil
+}
+
+func SendMyOrders(chatID int64, userName string, bot *tgbotapi.BotAPI) error {
+	info := fmt.Sprintf("Твои бронирования: \n\n Выбери, на какую из машинок ты хочешь отменить свою бронь?\n")
+
+	msg := tgbotapi.NewMessage(chatID, info)
+	inlineKeyboard := tgbotapi.NewInlineKeyboardMarkup(
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Сушка", "XСушка"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Стиралка 1", "XСтиралка 1"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Стиралка 2", "XСтиралка 2"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Стиралка 3", "XСтиралка 3"),
+		),
+		tgbotapi.NewInlineKeyboardRow(
+			tgbotapi.NewInlineKeyboardButtonData("Назад", "back"),
+		),
 	)
 
 	msg.ReplyMarkup = inlineKeyboard

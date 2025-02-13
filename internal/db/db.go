@@ -1,57 +1,42 @@
 package db
 
 import (
-	"context"
+	"database/sql"
 	"fmt"
-	"laundryBot/internal/errs"
 	"log"
 	"os"
 
+	"laundryBot/internal/errs"
+
 	_ "github.com/lib/pq"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func ConnectToDB() (*mongo.Client, error) {
+func ConnectToDB() (*sql.DB, error) {
+	dbHost := os.Getenv("DB_HOST")
+	dbPort := os.Getenv("DB_PORT")
+	dbUser := os.Getenv("DB_USER")
+	dbPassword := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
 
-	mongoHost := os.Getenv("MONGO_HOST")
-	mongoPort := os.Getenv("MONGO_PORT")
-	mongoUser := os.Getenv("MONGO_USER")
-	mongoPassword := os.Getenv("MONGO_PASSWORD")
-	mongoDB := os.Getenv("MONGO_DB")
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", dbUser, dbPassword, dbHost, dbPort, dbName)
 
-	connStr := fmt.Sprintf("mongodb://%s:%s@%s:%s/%s", mongoUser, mongoPassword, mongoHost, mongoPort, mongoDB)
-
-	clientOptions := options.Client().ApplyURI(connStr)
-	client, err := mongo.Connect(context.Background(), clientOptions)
+	db, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errs.ErrConnectionToDB, err)
 	}
 
-	err = client.Ping(context.Background(), nil)
+	err = db.Ping()
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", errs.ErrConnectionToDB, err)
 	}
 
-	log.Println("Получилось подключиться к бд!")
-	return client, nil
+	log.Println("Подключение к PostgreSQL установлено!")
+	return db, nil
 }
 
-func InsertUserToDB(client *mongo.Client, username, roomNumber string) error {
-	db := client.Database(os.Getenv("MONGO_DB"))
-	collection := db.Collection("users")
-
-	user := struct {
-		Username     string `bson:"username"`
-		RoomNumber   string `bson:"roomNumber"`
-		IsAuthorised bool   `bson:"isAuthorised"`
-	}{
-		Username:     username,
-		RoomNumber:   roomNumber,
-		IsAuthorised: false,
-	}
-
-	_, err := collection.InsertOne(context.Background(), user)
+func InsertUserToDB(db *sql.DB, username, roomNumber string, isAuthorised bool) error {
+	query := "INSERT INTO users (username, room_number, is_authorised) VALUES ($1, $2, $3)"
+	_, err := db.Exec(query, username, roomNumber, isAuthorised)
 	if err != nil {
 		return fmt.Errorf("%w: %w", err, errs.ErrInsertingDataFromDB)
 	}
@@ -60,18 +45,16 @@ func InsertUserToDB(client *mongo.Client, username, roomNumber string) error {
 	return nil
 }
 
-func GetIsAuthorisedFromDB(collection *mongo.Collection, username string) (bool, error) {
-	var result struct {
-		IsAuthorised bool `bson:"isAuthorised"`
-	}
-
-	err := collection.FindOne(context.Background(), struct{ Username string }{Username: username}).Decode(&result)
+func GetIsAuthorisedFromDB(db *sql.DB, username string) (bool, error) {
+	var isAuthorised bool
+	query := "SELECT is_authorised FROM users WHERE username = $1"
+	err := db.QueryRow(query, username).Scan(&isAuthorised)
 	if err != nil {
-		if err == mongo.ErrNoDocuments {
+		if err == sql.ErrNoRows {
 			return false, nil
 		}
 		return false, fmt.Errorf("%w: %w", err, errs.ErrPullingDataFromDB)
 	}
 
-	return result.IsAuthorised, nil
+	return isAuthorised, nil
 }

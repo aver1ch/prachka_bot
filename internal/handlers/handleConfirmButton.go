@@ -10,7 +10,7 @@ import (
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
-func HandleLaundryButton(callbackQuery *tgbotapi.CallbackQuery, bot *tgbotapi.BotAPI, laundry string) error {
+func HandleConfirmButton(callbackQuery *tgbotapi.CallbackQuery, bot *tgbotapi.BotAPI, service string) error {
 	chatID := callbackQuery.Message.Chat.ID
 	userName := callbackQuery.From.UserName
 
@@ -26,8 +26,8 @@ func HandleLaundryButton(callbackQuery *tgbotapi.CallbackQuery, bot *tgbotapi.Bo
 	}
 
 	if isAuthorized {
-		err := send.SendInfoByService(chatID, userName, bot, laundry)
-		log.Printf("Пользователь %s (chatID: %d) нажал на кнопку 'Cтиралка' (%s)", userName, chatID, laundry)
+		err := send.SendConfirmMessage(chatID, userName, bot)
+		log.Printf("Пользователь %s (chatID: %d) нажал на кнопку 'Подтвердить бронь'", userName, chatID)
 		if err != nil {
 			return fmt.Errorf("%w:%w", err, errs.ErrAlreadyAutorized)
 		}
@@ -37,6 +37,5 @@ func HandleLaundryButton(callbackQuery *tgbotapi.CallbackQuery, bot *tgbotapi.Bo
 			return err
 		}
 	}
-
 	return nil
 }
